@@ -53,3 +53,6 @@ dkms.conf
 
 # debug information files
 *.dwo
+/.vs
+/HackathonCrudProject/.vs
+/HackathonCrudProject/HackathonCrudProject/.vscode
