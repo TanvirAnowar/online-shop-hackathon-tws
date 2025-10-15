@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="HackathonCrudProject/HackathonCrudProject.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

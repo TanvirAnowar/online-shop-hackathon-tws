@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.3
+    container_name: db
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u \"$MYSQL_USER\" --password=\"$MYSQL_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server
+    environment:
+      PORT: "${PORT}"
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}   # or ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_WAITFORCONNECTIONS: "true"
+      DB_CONNECTIONLIMIT: "10"
+      DB_QUEUELIMIT: "0"
+      DB_TABLENAME: users
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  db_data:
