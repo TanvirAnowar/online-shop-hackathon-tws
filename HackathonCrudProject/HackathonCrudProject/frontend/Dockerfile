@@ -8,8 +8,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Final stage: distroless Node runtime
-FROM gcr.io/distroless/nodejs:20
+# Final stage: lightweight Node runtime (use alpine instead of gcr.io/distroless)
+FROM node:20-alpine
 WORKDIR /app
 
 # Copy static assets and minimal server
@@ -19,5 +19,4 @@ COPY --from=build /app/server.js ./server.js
 ENV NODE_ENV=production
 EXPOSE 80
 
-# Use node to run the minimal server
-ENTRYPOINT ["node", "server.js"]
+CMD ["node", "server.js"]
