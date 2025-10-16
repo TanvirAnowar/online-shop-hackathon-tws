@@ -6,6 +6,9 @@ import EditUserModal from "./modals/EditUserModal";
 import CreateUserModal from "./modals/CreateUserModal";
 import DeleteUserModal from "./modals/DeleteUserModal";
 
+// derive API base from page host (works when frontend and backend run on same EC2 host)
+const API_BASE = import.meta?.env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+
 //creation of the parent functional component which will be pased to app.jsx
 function Table() {
   //using use state, use ref for state variables and ref to track if fetch has already been attempted
@@ -16,7 +19,7 @@ function Table() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get("http://localhost:3000");
+        const response = await axios.get(`${API_BASE}/`);
         //setting the empty array as a json object of users got from the server
         setUsers(response.data);
 

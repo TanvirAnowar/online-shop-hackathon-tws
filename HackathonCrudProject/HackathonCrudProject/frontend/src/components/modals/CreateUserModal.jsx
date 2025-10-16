@@ -3,6 +3,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import axios from "axios";
 
+// derive API base from page host (works when frontend and backend run on same EC2 host)
+const API_BASE = import.meta?.env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+
 //starting of the functional component which takes a argument inside for adding the user to the user aray for dynamic display witout any reload
 function CreateUserModal({ addUser }) {
   //using state variables for access of the input fields
@@ -29,7 +32,7 @@ function CreateUserModal({ addUser }) {
 
     try {
       //post req to server
-      const res = await axios.post("http://localhost:3000/", {
+      const res = await axios.post(`${API_BASE}/`, {
         name,
         email
       });
