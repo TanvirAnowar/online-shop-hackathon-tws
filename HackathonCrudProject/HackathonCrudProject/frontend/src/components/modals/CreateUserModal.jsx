@@ -3,8 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import axios from "axios";
 
-// derive API base from page host (works when frontend and backend run on same EC2 host)
-const API_BASE = import.meta?.env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+// Use relative API path through frontend proxy
+const API_BASE = '/api';
 
 //starting of the functional component which takes a argument inside for adding the user to the user aray for dynamic display witout any reload
 function CreateUserModal({ addUser }) {

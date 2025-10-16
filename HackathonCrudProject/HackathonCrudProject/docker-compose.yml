@@ -38,8 +38,6 @@ services:
       DB_CONNECTIONLIMIT: "10"
       DB_QUEUELIMIT: "0"
       DB_TABLENAME: users
-    ports:
-      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
