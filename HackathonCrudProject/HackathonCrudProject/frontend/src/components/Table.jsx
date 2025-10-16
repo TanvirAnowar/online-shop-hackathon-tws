@@ -7,7 +7,7 @@ import CreateUserModal from "./modals/CreateUserModal";
 import DeleteUserModal from "./modals/DeleteUserModal";
 
 // derive API base from page host (works when frontend and backend run on same EC2 host)
-const API_BASE = import.meta?.env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+const API_BASE = '/api';
 
 //creation of the parent functional component which will be pased to app.jsx
 function Table() {

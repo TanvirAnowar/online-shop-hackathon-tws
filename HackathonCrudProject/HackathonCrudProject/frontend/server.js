@@ -5,6 +5,9 @@ const path = require('path');
 const PORT = process.env.PORT || 80;
 const PUBLIC_DIR = path.join(__dirname, 'dist');
 
+const BACKEND_HOST = process.env.BACKEND_HOST || 'server';
+const BACKEND_PORT = process.env.BACKEND_PORT || 3000;
+
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -27,7 +30,7 @@ function sendFile(res, filePath) {
   const contentType = mimeTypes[ext] || 'application/octet-stream';
   res.writeHead(200, {
     'Content-Type': contentType,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=604800' // cache static assets
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=604800'
   });
   const stream = fs.createReadStream(filePath);
   stream.pipe(res);
@@ -39,21 +42,46 @@ function sendFile(res, filePath) {
 
 const server = http.createServer((req, res) => {
   try {
+    // Proxy API requests to backend service on the Docker network
+    if (req.url.startsWith('/api')) {
+      const backendPath = req.url.replace(/^\/api/, '') || '/';
+      const options = {
+        hostname: BACKEND_HOST,
+        port: BACKEND_PORT,
+        path: backendPath,
+        method: req.method,
+        headers: Object.assign({}, req.headers)
+      };
+
+      const proxyReq = http.request(options, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+      });
+
+      proxyReq.on('error', (err) => {
+        console.error('Proxy error:', err);
+        res.writeHead(502);
+        res.end('Bad gateway');
+      });
+
+      // Pipe request body to backend
+      req.pipe(proxyReq, { end: true });
+      return;
+    }
+
+    // Serve static files (SPA fallback)
     const safeUrl = decodeURIComponent(req.url.split('?')[0]);
     let filePath = path.join(PUBLIC_DIR, safeUrl);
 
-    // Prevent path traversal
     if (!filePath.startsWith(PUBLIC_DIR)) {
       res.writeHead(400);
       return res.end('Bad Request');
     }
 
-    // If request is directory or no extension, try to serve index.html (SPA fallback)
     if (filePath.endsWith(path.sep) || path.extname(filePath) === '') {
       filePath = path.join(filePath, 'index.html');
     }
 
-    // If file doesn't exist, fallback to SPA index.html
     if (!fs.existsSync(filePath)) {
       const indexFile = path.join(PUBLIC_DIR, 'index.html');
       if (fs.existsSync(indexFile)) {
@@ -71,6 +99,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  // Logging to stdout is fine for containers
   console.log(`Frontend static server running on port ${PORT}`);
 });
