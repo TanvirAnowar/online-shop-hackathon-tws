@@ -19,6 +19,8 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    networks:
+      - hackathon-network
 
   server:
     build:
@@ -41,6 +43,8 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - hackathon-network
 
   frontend:
     build:
@@ -48,10 +52,17 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "8080:80"
+      - "80:80"
     depends_on:
       - server
     restart: unless-stopped
+    networks:
+      - hackathon-network
 
 volumes:
   db_data:
+
+networks:
+  hackathon-network:
+    driver: bridge
+    name: hackathon-network
