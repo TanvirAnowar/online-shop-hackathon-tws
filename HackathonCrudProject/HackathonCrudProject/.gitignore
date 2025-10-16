@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 
+# Custom Folder To IGNORE
+SECURE/
+
 # Environment variables
 .env
 
