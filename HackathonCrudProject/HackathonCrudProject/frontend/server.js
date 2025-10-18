@@ -1,12 +1,11 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { URL } = require('url');
 
 const PORT = process.env.PORT || 80;
+const API_TARGET = process.env.API_TARGET || 'http://server:3000';
 const PUBLIC_DIR = path.join(__dirname, 'dist');
-
-const BACKEND_HOST = process.env.BACKEND_HOST || 'server';
-const BACKEND_PORT = process.env.BACKEND_PORT || 3000;
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -40,43 +39,43 @@ function sendFile(res, filePath) {
   });
 }
 
+function proxyApi(req, res) {
+  try {
+    const target = new URL(API_TARGET);
+    const options = {
+      hostname: target.hostname,
+      port: target.port || 80,
+      path: req.url, // keep /api/... path
+      method: req.method,
+      headers: Object.assign({}, req.headers, { host: target.hostname })
+    };
+
+    const proxyReq = http.request(options, proxyRes => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+
+    proxyReq.on('error', () => {
+      res.writeHead(502);
+      res.end('Bad Gateway');
+    });
+
+    req.pipe(proxyReq, { end: true });
+  } catch (err) {
+    res.writeHead(500);
+    res.end('Internal Server Error');
+  }
+}
+
 const server = http.createServer((req, res) => {
   try {
-    // Proxy API requests to backend service on the Docker network
-    if (req.url.startsWith('/api')) {
-      const backendPath = req.url.replace(/^\/api/, '') || '/';
-      const options = {
-        hostname: BACKEND_HOST,
-        port: BACKEND_PORT,
-        path: backendPath,
-        method: req.method,
-        headers: Object.assign({}, req.headers)
-      };
-
-      const proxyReq = http.request(options, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        proxyRes.pipe(res, { end: true });
-      });
-
-      proxyReq.on('error', (err) => {
-        console.error('Proxy error:', err);
-        res.writeHead(502);
-        res.end('Bad gateway');
-      });
-
-      // Pipe request body to backend
-      req.pipe(proxyReq, { end: true });
-      return;
-    }
-
-    // Serve static files (SPA fallback)
     const safeUrl = decodeURIComponent(req.url.split('?')[0]);
-    let filePath = path.join(PUBLIC_DIR, safeUrl);
 
-    if (!filePath.startsWith(PUBLIC_DIR)) {
-      res.writeHead(400);
-      return res.end('Bad Request');
+    if (safeUrl.startsWith('/api/')) {
+      return proxyApi(req, res);
     }
+
+    let filePath = path.join(PUBLIC_DIR, safeUrl);
 
     if (filePath.endsWith(path.sep) || path.extname(filePath) === '') {
       filePath = path.join(filePath, 'index.html');
@@ -84,14 +83,12 @@ const server = http.createServer((req, res) => {
 
     if (!fs.existsSync(filePath)) {
       const indexFile = path.join(PUBLIC_DIR, 'index.html');
-      if (fs.existsSync(indexFile)) {
-        return sendFile(res, indexFile);
-      }
+      if (fs.existsSync(indexFile)) return sendFile(res, indexFile);
       res.writeHead(404);
       return res.end('Not Found');
     }
 
-    sendFile(res, filePath);
+    return sendFile(res, filePath);
   } catch (err) {
     res.writeHead(500);
     res.end('Internal Server Error');

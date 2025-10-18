@@ -1,58 +1,192 @@
-# DevOps Hackathon � Dockerized CRUD Deployment (DevOps view)
+﻿# 🐳 CRUD App – Dockerized Deployment on AWS EC2
 
-Summary
-- This repository contains a Dockerized deployment for a simple MySQL + Node (Express) API and a static React frontend served by a small Node static server.  
-- Focus: infrastructure, repeatable builds, persistence, healthchecks and simple service-to-service networking � delivered as a Docker Compose stack suitable for EC2 deployment and pointing to the domain `querygem.dpdns.org`.
+**Project:** Full-stack CRUD App (Frontend + Backend + Database)  
+**Deployment:** Docker & Docker Compose on [Amazon Web Services](https://aws.amazon.com/) EC2  
+**Live Domain:** [https://querygem.dpdns.org](https://querygem.dpdns.org)
 
-Quick architecture
-- Services (docker-compose):
-  - `db` � MySQL 8.3, named volume `db_data` for persistence, runs `db/init.sql` on first init.
-  - `server` � Node/Express API, connects to `db` via Docker network.
-  - `frontend` � built React app served on port 80; optionally proxies `/api` to `server` so only port 80 needs to be open externally.
+---
 
-Prerequisites (EC2)
-- EC2 instance with outbound internet (or access to registries), Docker and Docker Compose installed.
-- Security group: open TCP 80 (HTTP) and SSH (22) only. Do NOT open 3306 or 3000 publicly.
-- Ensure `.env` in project root exists and is correct (see below).
+## 📌 Overview
 
-Environment / secrets
-- Fill `HackathonCrudProject/.env` (example values present). Important: do NOT commit `.env`.
-  - Required keys:
-    - `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`
-    - `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`, `DB_HOST=db`, `PORT=3000`
-  - Ensure `DB_USER` and `DB_PASSWORD` are explicit (do not rely on nested interpolation).
+This project demonstrates a **complete Docker-based deployment** of a full-stack CRUD application, including:
 
-Persistent storage
-- The MySQL data directory is persisted with a named volume `db_data` (declared in `docker-compose.yml`):
-  - db => `/var/lib/mysql`
-- Back up the volume (example from EC2 host):
-  - docker run --rm -v db_data:/var/lib/mysql -v $(pwd)/backup:/backup alpine \
-    sh -c "tar czf /backup/db_data.tar.gz -C /var/lib/mysql ."
-- To destroy and recreate (WARNING: deletes data):
-  - docker compose down -v
-  - docker compose up -d --build
+- Frontend and backend combined in one containerized environment  
+- MySQL database running in a private Docker network  
+- Secure deployment on AWS EC2  
+- Domain pointing with [DPDNS](https://dpdns.org/)  
+- Minimal exposed ports for better security
 
-Database init (what runs and options)
-- The repo includes `db/init.sql` � typical content creates `crud_operations` and `users` table.
-- Official MySQL image executes `/docker-entrypoint-initdb.d/*.sql` only when the data directory is empty (first initialization). To force that execution you must remove the volume and recreate the stack (see above).
-- If you must run `init.sql` against an existing database without removing the volume, run it manually inside the container.
+---
 
-Secure safe manual execution (recommended)
-- From repo root on EC2:
-  - Pull root password into a shell variable
-    - MYSQL_ROOT_PASSWORD=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env | cut -d'=' -f2-)
-  - Create a temp protected client file, copy to container, run script, remove it:
-    - cat > /tmp/mysql-client.conf <<EOF
-      [client]
-      user=root
-      password=${MYSQL_ROOT_PASSWORD}
-      EOF
-    - chmod 600 /tmp/mysql-client.conf
-    - docker cp /tmp/mysql-client.conf db:/tmp/mysql-client.conf
-    - docker exec -i db mysql --defaults-extra-file=/tmp/mysql-client.conf < db/init.sql
-    - docker exec db rm /tmp/mysql-client.conf || true
-    - rm -f /tmp/mysql-client.conf
-  - Quick alternative (shows warning about password on CLI):
-  - docker exec -i db mysql -u root -p"$MYSQL_ROOT_PASSWORD" < db/init.sql
+## 🧰 Tech Stack
 
-SQL snippet (table creation)
+| Layer                 | Tool / Service                      |
+|-----------------------|-------------------------------------|
+| **Frontend + Backend** | React + Node.js (Dockerized)        |
+| **Database**           | MySQL (Dockerized, internal only)   |
+| **Containerization**   | Docker + Docker Compose             |
+| **Hosting**            | AWS EC2 (Ubuntu)                    |
+| **Domain Mapping**     | DPDNS custom domain                 |
+
+---
+
+## 🏗️ Architecture Diagram
+
+```
+                ┌───────────────────────┐
+                │    Client Browser     │
+                └──────────┬────────────┘
+                           │  (HTTP)
+                           ▼
+                ┌─────────────────────────┐
+                │    AWS EC2 Instance     │
+                │  querygem.dpdns.org     │
+                │  Port 80 (Public)       │
+                └──────────┬──────────────┘
+                           │
+           ┌───────────────┼────────────────┐
+           │                                │
+           ▼                                ▼
+ ┌────────────────┐               ┌────────────────┐
+ │ Frontend + API │               │ MySQL Database │
+ │ Single Service │──────────────▶│ Private        │
+ │ Port 80        │ Internal Net  │ No Public Port │
+ └────────────────┘               └────────────────┘
+```
+
+> ✅ Only port **80** is exposed publicly.  
+> 🛡️ MySQL runs privately inside Docker network.
+
+---
+
+## 🪜 Deployment Steps
+
+### 1. **Create and Access EC2 Instance**
+
+```bash
+chmod 400 hakathon-private-key.pem
+ssh -i "hakathon-private-key.pem" ubuntu@<your-ec2-public-dns>
+```
+
+---
+
+### 2. **Install Docker & Docker Compose**
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg lsb-release
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+sudo apt install -y docker-compose-plugin
+```
+
+> Reconnect SSH after adding the user to the Docker group.
+
+---
+
+### 3. **Clone the Repository & Set Environment**
+
+```bash
+git clone https://github.com/TanvirAnowar/online-shop-hackathon-tws.git
+cd online-shop-hackathon-tws
+```
+
+- Create a `.env` file with required environment variables.
+
+---
+
+### 4. **Configure Security Groups**
+
+- Allow inbound:
+  - **22** → SSH (your IP only)
+  - **80** → Web access
+- Block all other ports (e.g., MySQL 3306 stays private).
+
+✅ MySQL stays inside Docker’s private network.
+
+---
+
+### 5. **Build & Run Containers**
+
+```bash
+docker compose up -d --build
+sudo systemctl restart docker
+```
+
+---
+
+### 6. **Initialize the Database**
+
+```bash
+docker exec -i -e MYSQL_PWD="supersecretrootXX123" db mysql -u root < db/init.sql
+```
+
+Check data:
+
+```bash
+docker exec -it db mysql -u root -p
+SHOW DATABASES;
+USE <your_database>;
+SHOW TABLES;
+```
+
+---
+
+### 7. **Domain Configuration**
+
+- Point `querygem.dpdns.org` to EC2 public IP.  
+- Add an **A record** in your DNS provider.  
+- Access the app:
+
+```
+http://querygem.dpdns.org
+```
+
+---
+
+## 📸 Screenshots
+
+![Docker Compose Logs](https://via.placeholder.com/600x300?text=Docker+Compose+Logs)
+![EC2 Security Group Port 80](https://via.placeholder.com/600x300?text=Security+Group+Port+80)
+![React CRUD UI](https://via.placeholder.com/600x300?text=React+CRUD+App+Running)
+
+---
+
+## 🧠 Key Highlights
+
+| Area                 | Implementation                        | Benefit                       |
+|----------------------|---------------------------------------|-------------------------------|
+| **Containerization** | Docker + Compose                      | Fast, consistent deployment   |
+| **Security**         | Only port 80 exposed                  | Reduced attack surface        |
+| **Automation**       | Single build command                  | Easy to manage                |
+| **Domain Mapping**   | DPDNS to EC2                          | Clean public URL              |
+| **Database Setup**   | `init.sql` + exec                     | Easy to replicate             |
+
+---
+
+## 🧰 Useful Commands
+
+| Command | Description |
+|---------|-------------|
+| `docker ps` | Check running containers |
+| `docker compose up -d --build` | Build and run containers |
+| `docker compose down` | Stop and remove containers |
+| `docker logs <container>` | Check logs |
+| `docker exec -it <container> bash` | Access container shell |
+
+---
+
+## 🚀 Future Improvements
+
+- Add CI/CD pipeline for automated deployment  
+- Enable HTTPS with [Certbot](https://certbot.eff.org/) / [Let’s Encrypt](https://letsencrypt.org/)  
+- Add monitoring and alerting  
+- Optimize image size further
+
+---
+
+## 👤 Author
+
+**Tanvir Anowar**  
+DevOps & Automation Enthusiast  
+🔗 [GitHub](https://github.com/TanvirAnowar)
