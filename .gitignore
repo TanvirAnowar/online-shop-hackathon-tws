@@ -56,3 +56,4 @@ dkms.conf
 /.vs
 /HackathonCrudProject/.vs
 /HackathonCrudProject/HackathonCrudProject/.vscode
+/HackathonCrudProject/HackathonCrudProject/obj/Debug
